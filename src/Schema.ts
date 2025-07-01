@@ -110,13 +110,14 @@ export default class Schema {
         }
     }
 
-    public async updateMany(query: { [key: string]: any }, newValue: { [key: string]: any }) {
+    public async updateMany(query: { [key: string]: any }, newValue: { "$set": { [key: string]: any } }) {
         const [key, value] = Object.entries(query)[0];
         try {
             const collection = this.readCollection();
             const updatedCollection = collection.map((item: any) => {
                 if (item[key] === value) {
-                    return { ...item, ...newValue };
+                    const InputValue = newValue["$set"];
+                    return { ...item, ...InputValue };
                 }
                 return item;
             });
@@ -130,7 +131,7 @@ export default class Schema {
 
     public async findOneAndUpdate(
         query: { [key: string]: any },
-        newValue: { [key: string]: any }
+        newValue: { "$set": { [key: string]: any } }
     ) {
         const [key, value] = Object.entries(query)[0];
         try {
@@ -139,7 +140,8 @@ export default class Schema {
             if (index === -1) {
                 throw new Error(`No entry found for key: ${key}, value: ${value}`);
             }
-            collection[index] = { ...collection[index], ...newValue };
+            const InputValue = newValue["$set"];
+            collection[index] = { ...collection[index], ...InputValue };
             this.writeCollection(collection);
             return collection[index];
         } catch (error) {
