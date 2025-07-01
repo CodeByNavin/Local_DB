@@ -1,6 +1,6 @@
 {
   "name": "@codebynavin/local_db",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A local version of mongodb in a JSON file, same features as mongoose",
   "main": "dist/index.js",
   "scripts": {
@@ -10,8 +10,12 @@
   },
   "repository": {
     "type": "git",
+    "url": "git+https://github.com/CodeByNavin/Local_DB"
+  },
+  "bugs":{
     "url": "https://github.com/CodeByNavin/Local_DB"
   },
+  "homepage": "https://github.com/CodeByNavin/Local_DB#readme",
   "author": "CodeByNavin",
   "license": "ISC",
   "devDependencies": {
