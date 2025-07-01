@@ -1,6 +1,6 @@
 {
   "name": "@codebynavin/local_db",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "A local version of mongodb in a JSON file, same features as mongoose",
   "main": "dist/index.js",
   "scripts": {
