@@ -53,7 +53,7 @@ export default class Schema {
         try {
             this.validateDocument(query);
             const _id = crypto.randomBytes(30).toString('hex');
-            query._id = _id;
+            query._id = _id; // Add unique ID to the document
             const collection = this.readCollection();
             collection.push(query);
             this.writeCollection(collection);
@@ -129,7 +129,37 @@ export default class Schema {
         } catch (error) {
             throw new Error(`Failed to update values: ${key}, ${value} ` + error);
         }
+    }
 
+    public async findById(
+        _id: string
+    ) {
+        try {
+            const collection = this.readCollection();
+            const item = collection.find((item: any) => item._id === _id);
+            return item || null;
+        } catch (error) {
+            throw new Error(`Failed to find value with _id: ${_id} ` + error);
+        }
+    }
+
+    public async findByIdAndUpdate(
+        _id: string,
+        newValue: { "$set": { [key: string]: any } }
+    ) {
+        try {
+            const collection = this.readCollection();
+            const index = collection.findIndex((item: any) => item._id === _id);
+            if (index === -1) {
+                throw new Error(`No entry found for _id: ${_id}`);
+            }
+            const InputValue = newValue["$set"];
+            collection[index] = { ...collection[index], ...InputValue };
+            this.writeCollection(collection);
+            return collection[index];
+        } catch (error) {
+            throw new Error(`Failed to update value with _id: ${_id} ` + error);
+        }
     }
 
     public async findOneAndUpdate(
@@ -149,6 +179,24 @@ export default class Schema {
             return collection[index];
         } catch (error) {
             throw new Error(`Failed to update value: ${key}, ${value} ` + error);
+        }
+    }
+
+    public async findByIdAndDelete(
+        _id: string,
+    ) {
+        try {
+            const collection = this.readCollection();
+            const index = collection.findIndex((item: any) => item._id === _id);
+            if (index === -1) {
+                throw new Error(`No entry found for _id: ${_id}`);
+            }
+            const removedItem = collection[index];
+            collection.splice(index, 1);
+            this.writeCollection(collection);
+            return removedItem;
+        } catch (error) {
+            throw new Error(`Failed to remove value with _id: ${_id} ` + error);
         }
     }
 
