@@ -1,5 +1,9 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
+const crypto_1 = __importDefault(require("crypto"));
 class Schema {
     constructor(db, collectionName, schemaDefinition) {
         this.db = db;
@@ -33,6 +37,8 @@ class Schema {
     async create(query) {
         try {
             this.validateDocument(query);
+            const _id = crypto_1.default.randomBytes(30).toString('hex');
+            query._id = _id;
             const collection = this.readCollection();
             collection.push(query);
             this.writeCollection(collection);
@@ -93,6 +99,24 @@ class Schema {
             throw new Error(`Failed to delete value: ${key}, ${value} ` + error);
         }
     }
+    async updateMany(query, newValue) {
+        const [key, value] = Object.entries(query)[0];
+        try {
+            const collection = this.readCollection();
+            const updatedCollection = collection.map((item) => {
+                if (item[key] === value) {
+                    const InputValue = newValue["$set"];
+                    return { ...item, ...InputValue };
+                }
+                return item;
+            });
+            this.writeCollection(updatedCollection);
+            return updatedCollection;
+        }
+        catch (error) {
+            throw new Error(`Failed to update values: ${key}, ${value} ` + error);
+        }
+    }
     async findOneAndUpdate(query, newValue) {
         const [key, value] = Object.entries(query)[0];
         try {
@@ -101,7 +125,8 @@ class Schema {
             if (index === -1) {
                 throw new Error(`No entry found for key: ${key}, value: ${value}`);
             }
-            collection[index] = { ...collection[index], ...newValue };
+            const InputValue = newValue["$set"];
+            collection[index] = { ...collection[index], ...InputValue };
             this.writeCollection(collection);
             return collection[index];
         }

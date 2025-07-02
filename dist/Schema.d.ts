@@ -26,10 +26,19 @@ export default class Schema {
     deleteOne(query: {
         [key: string]: any;
     }): Promise<void>;
+    updateMany(query: {
+        [key: string]: any;
+    }, newValue: {
+        "$set": {
+            [key: string]: any;
+        };
+    }): Promise<any>;
     findOneAndUpdate(query: {
         [key: string]: any;
     }, newValue: {
-        [key: string]: any;
+        "$set": {
+            [key: string]: any;
+        };
     }): Promise<any>;
     findOneAndDelete(query: {
         [key: string]: any;

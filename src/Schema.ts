@@ -1,4 +1,5 @@
 import LocalDB from './Class';
+import crypto from "crypto";
 
 export default class Schema {
     private collectionName: string;
@@ -51,6 +52,8 @@ export default class Schema {
     public async create(query: { [key: string]: any }) {
         try {
             this.validateDocument(query);
+            const _id = crypto.randomBytes(30).toString('hex');
+            query._id = _id;
             const collection = this.readCollection();
             collection.push(query);
             this.writeCollection(collection);
