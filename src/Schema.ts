@@ -1,10 +1,21 @@
 import LocalDB from './Class';
 import crypto from "crypto";
 
+interface ExtraInputs {
+    upsert?: boolean;
+    new?: boolean;
+    timestamps?: boolean;
+}
+
 export default class Schema {
     private collectionName: string;
     private schemaDefinition: { [key: string]: any };
     private db: LocalDB;
+    private ExtraInputs = {
+        upsert: Boolean,
+        new: Boolean,
+        timestamps: Boolean
+    }
 
     constructor(
         db: LocalDB,
@@ -49,12 +60,63 @@ export default class Schema {
         }
     }
 
-    public async create(query: { [key: string]: any }) {
+    private checkExtraInput(
+        inputs: ExtraInputs,
+        MainData: { [key: string]: any },
+        system: "create" | "update" | "delete" | "find"
+    ) {
+        for (const [key, value] of Object.entries(inputs)) {
+            if (this.ExtraInputs[key as keyof typeof this.ExtraInputs] === undefined) {
+                throw new Error(`Invalid extra input: ${key}`);
+            }
+            if (
+                typeof value !== "boolean" &&
+                value !== true
+            ) continue;
+
+            // TODO: Add on upsert and new logic
+
+            switch (system) {
+                case "create":
+                    if (key === "timestamps") {
+                        MainData.createdAt = new Date().toISOString();
+                        MainData.updatedAt = new Date().toISOString();
+                    }
+                    break;
+                case "update":
+                    if (key === "timestamps") {
+                        MainData.updatedAt = new Date().toISOString();
+                    }
+                    break;
+                case "delete":
+                    if (key === "timestamps") {
+                        delete MainData.createdAt;
+                        delete MainData.updatedAt;
+                    }
+                    break;
+                case "find":
+                    if (key === "upsert") {
+                        const existingItem = this.readCollection().find((item: any) => item._id === MainData._id);
+                        if (!existingItem) {
+                            this.create(MainData);
+                        }
+                    }
+                    break;
+                default:
+                    throw new Error(`Invalid system operation: ${system}`);
+                    break;
+            }
+        }
+        return MainData;
+    }
+
+    public async create(query: { [key: string]: any }, extraInputs?: ExtraInputs) {
         try {
             this.validateDocument(query);
-            const _id = crypto.randomBytes(30).toString('hex');
-            query._id = _id; // Add unique ID to the document
+            const _id = crypto.randomBytes(24).toString('hex');
+            query._id = _id;
             const collection = this.readCollection();
+            extraInputs ? query = this.checkExtraInput(extraInputs, query, "create") : null;
             collection.push(query);
             this.writeCollection(collection);
             return query;
@@ -63,13 +125,21 @@ export default class Schema {
         }
     }
 
-    public async find(query?: { [key: string]: any }) {
+    public async find(query?: { [key: string]: any }, extraInputs?: ExtraInputs) {
         try {
             const collection = this.readCollection();
             if (!query) {
+                if (extraInputs) {
+                    return collection.map((item: any) => this.checkExtraInput(extraInputs, item, "find"));
+                }
                 return collection;
             } else {
                 const [key, value] = Object.entries(query)[0];
+                if (extraInputs) {
+                    return collection
+                        .filter((item: any) => item[key] === value)
+                        .map((item: any) => this.checkExtraInput(extraInputs, item, "find"));
+                }
                 return collection.filter((item: any) => item[key] === value);
             }
         } catch (error) {
@@ -77,11 +147,14 @@ export default class Schema {
         }
     }
 
-    public async findOne(query: { [key: string]: any }) {
+    public async findOne(query: { [key: string]: any }, extraInputs?: ExtraInputs) {
         const [key, value] = Object.entries(query)[0];
         try {
             const collection = this.readCollection();
-            const item = collection.find((item: any) => item[key] === value);
+            let item = collection.find((item: any) => item[key] === value);
+            if (extraInputs && item) {
+                item = this.checkExtraInput(extraInputs, item, "find");
+            }
             return item || null;
         } catch (error) {
             throw new Error(`Failed to find value: ${key}, ${value} ` + error);
@@ -113,7 +186,7 @@ export default class Schema {
         }
     }
 
-    public async updateMany(query: { [key: string]: any }, newValue: { "$set": { [key: string]: any } }) {
+    public async updateMany(query: { [key: string]: any }, newValue: { "$set": { [key: string]: any } }, extraInputs?: ExtraInputs) {
         const [key, value] = Object.entries(query)[0];
         try {
             const collection = this.readCollection();
@@ -124,6 +197,11 @@ export default class Schema {
                 }
                 return item;
             });
+            if (extraInputs) {
+                updatedCollection.forEach((item: any) => {
+                    this.checkExtraInput(extraInputs, item, "update");
+                });
+            }
             this.writeCollection(updatedCollection);
             return updatedCollection;
         } catch (error) {
@@ -132,11 +210,15 @@ export default class Schema {
     }
 
     public async findById(
-        _id: string
+        _id: string,
+        extraInputs?: ExtraInputs
     ) {
         try {
             const collection = this.readCollection();
-            const item = collection.find((item: any) => item._id === _id);
+            let item = collection.find((item: any) => item._id === _id);
+            if (extraInputs && item) {
+                item = this.checkExtraInput(extraInputs, item, "find");
+            }
             return item || null;
         } catch (error) {
             throw new Error(`Failed to find value with _id: ${_id} ` + error);
@@ -145,7 +227,8 @@ export default class Schema {
 
     public async findByIdAndUpdate(
         _id: string,
-        newValue: { "$set": { [key: string]: any } }
+        newValue: { "$set": { [key: string]: any } },
+        extraInputs?: ExtraInputs
     ) {
         try {
             const collection = this.readCollection();
@@ -155,6 +238,9 @@ export default class Schema {
             }
             const InputValue = newValue["$set"];
             collection[index] = { ...collection[index], ...InputValue };
+            if (extraInputs) {
+                collection[index] = this.checkExtraInput(extraInputs, collection[index], "update");
+            }
             this.writeCollection(collection);
             return collection[index];
         } catch (error) {
@@ -164,7 +250,8 @@ export default class Schema {
 
     public async findOneAndUpdate(
         query: { [key: string]: any },
-        newValue: { "$set": { [key: string]: any } }
+        newValue: { "$set": { [key: string]: any } },
+        extraInputs?: ExtraInputs
     ) {
         const [key, value] = Object.entries(query)[0];
         try {
@@ -175,6 +262,9 @@ export default class Schema {
             }
             const InputValue = newValue["$set"];
             collection[index] = { ...collection[index], ...InputValue };
+            if (extraInputs) {
+                collection[index] = this.checkExtraInput(extraInputs, collection[index], "update");
+            }
             this.writeCollection(collection);
             return collection[index];
         } catch (error) {

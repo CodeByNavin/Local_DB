@@ -1,5 +1,4 @@
 import { readFileSync, writeFileSync } from 'fs';
-import Schema from './Schema';
 
 export default class LocalDB {
   private DB_File: string;
@@ -29,7 +28,6 @@ export default class LocalDB {
     }
   }
 
-  // Public getters to allow Schema access without exposing private methods directly
   public getData() {
     return this.readData();
   }
@@ -37,8 +35,4 @@ export default class LocalDB {
   public setData(data: any) {
     this.writeData(data);
   }
-
-  public Schema = Schema;
-
-  // ... your other existing methods ...
 }
